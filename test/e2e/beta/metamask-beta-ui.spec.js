@@ -25,7 +25,7 @@ describe('MetaMask', function () {
   let tokenAddress
 
   const testSeedPhrase = 'phrase upgrade clock rough situate wedding elder clever doctor stamp excess tent'
-  const tinyDelayMs = 1000
+  const tinyDelayMs = 200
   const regularDelayMs = tinyDelayMs * 2
   const largeDelayMs = regularDelayMs * 2
 
@@ -188,8 +188,20 @@ describe('MetaMask', function () {
       await delay(regularDelayMs)
     })
 
-    async function retypeSeedPhrase (words) {
+    async function retypeSeedPhrase (words, wasReloaded) {
       try {
+        if (wasReloaded) {
+          const byRevealButton = By.css('.backup-phrase__secret-blocker .backup-phrase__reveal-button')
+          await driver.wait(until.elementLocated(byRevealButton, 10000))
+          const revealSeedPhraseButton = await findElement(driver, byRevealButton, 10000)
+          await revealSeedPhraseButton.click()
+          await delay(regularDelayMs)
+
+          const nextScreen = await findElement(driver, By.css('.backup-phrase button'))
+          await nextScreen.click()
+          await delay(regularDelayMs)
+        }
+
         const word0 = await findElement(driver, By.xpath(`//button[contains(text(), '${words[0]}')]`), 10000)
 
         await word0.click()
@@ -250,7 +262,7 @@ describe('MetaMask', function () {
         await delay(tinyDelayMs)
       } catch (e) {
         await loadExtension(driver, extensionId)
-        await retypeSeedPhrase(words)
+        await retypeSeedPhrase(words, true)
       }
     }
 
@@ -383,6 +395,9 @@ describe('MetaMask', function () {
       await inputAddress.sendKeys('0x2f318C334780961FB129D2a6c30D0763d9a5C970')
       await inputAmount.sendKeys('1')
 
+      const inputValue = await inputAmount.getAttribute('value')
+      assert.equal(inputValue, '1')
+
       // Set the gas limit
       const configureGas = await findElement(driver, By.css('.send-v2__gas-fee-display button'))
       await configureGas.click()
@@ -410,7 +425,7 @@ describe('MetaMask', function () {
     it('finds the transaction in the transactions list', async function () {
       const transactions = await findElements(driver, By.css('.tx-list-item'))
       assert.equal(transactions.length, 1)
-
+      await delay(regularDelayMs)
       const txValues = await findElement(driver, By.css('.tx-list-value'))
       await driver.wait(until.elementTextMatches(txValues, /1\sETH/), 10000)
     })
@@ -497,12 +512,12 @@ describe('MetaMask', function () {
       await delay(regularDelayMs)
 
       // Set the gas limit
-      const configureGas = await findElement(driver, By.css('.sliders-icon-container'))
+      const configureGas = await findElement(driver, By.css('.confirm-detail-row__header-text--edit'))
       await configureGas.click()
       await delay(regularDelayMs)
 
       const gasModal = await driver.findElement(By.css('span .modal'))
-      await driver.wait(until.elementLocated(By.css('.send-v2__customize-gas__title')))
+      await driver.wait(until.elementLocated(By.css('.customize-gas__title')))
 
       const [gasPriceInput, gasLimitInput] = await findElements(driver, By.css('.customize-gas-input'))
       await gasPriceInput.clear()
@@ -668,7 +683,7 @@ describe('MetaMask', function () {
       gasModal = await driver.findElement(By.css('span .modal'))
     })
 
-    it('customizes gas', async () => {
+    it('opens customizes gas modal', async () => {
       await driver.wait(until.elementLocated(By.css('.send-v2__customize-gas__title')))
       const save = await findElement(driver, By.xpath(`//button[contains(text(), 'Save')]`))
       await save.click()
@@ -739,7 +754,7 @@ describe('MetaMask', function () {
       await delay(regularDelayMs)
 
       // Set the gas limit
-      const configureGas = await driver.wait(until.elementLocated(By.css('.send-v2__gas-fee-display button')))
+      const configureGas = await driver.wait(until.elementLocated(By.css('.confirm-detail-row__header-text--edit')))
       await configureGas.click()
       await delay(regularDelayMs)
 
@@ -747,7 +762,7 @@ describe('MetaMask', function () {
     })
 
     it('customizes gas', async () => {
-      await driver.wait(until.elementLocated(By.css('.send-v2__customize-gas__title')))
+      await driver.wait(until.elementLocated(By.css('.customize-gas__title')))
 
       const [gasPriceInput, gasLimitInput] = await findElements(driver, By.css('.customize-gas-input'))
       await gasPriceInput.clear()
@@ -766,12 +781,12 @@ describe('MetaMask', function () {
         await gasLimitInput.sendKeys(Key.BACK_SPACE)
       }
 
-      const save = await findElement(driver, By.css('.send-v2__customize-gas__save'))
+      const save = await findElement(driver, By.css('.customize-gas__save'))
       await save.click()
       await driver.wait(until.stalenessOf(gasModal))
 
-      const gasFeeInput = await findElement(driver, By.css('.currency-display__input'))
-      assert.equal(await gasFeeInput.getAttribute('value'), 0.0006)
+      const gasFeeInputs = await findElements(driver, By.css('.confirm-detail-row__eth'))
+      assert.equal(await gasFeeInputs[0].getText(), '♦ 0.0006')
     })
 
     it('submits the transaction', async function () {
